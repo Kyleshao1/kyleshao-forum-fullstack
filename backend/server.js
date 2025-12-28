@@ -196,7 +196,7 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
-// Posts routes
+// 在server.js中，修改posts表的SQL查询
 app.get('/api/posts', async (req, res) => {
     try {
         const [posts] = await pool.execute(`
@@ -213,38 +213,54 @@ app.get('/api/posts', async (req, res) => {
         res.json(posts);
     } catch (error) {
         console.error('Error fetching posts:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        console.error('Error details:', error.message);
+        res.status(500).json({ 
+            error: 'Internal server error',
+            details: error.message 
+        });
     }
 });
 
+// 修改创建帖子的路由
 app.post('/api/posts', authenticateToken, async (req, res) => {
     try {
         const { title, content } = req.body;
         const userId = req.user.id;
         
-        // Check if user can post
+        console.log('Creating post:', { userId, title, content });
+        
+        // 检查用户是否可以发帖
         const [user] = await pool.execute(
             'SELECT can_post FROM users WHERE id = ?',
             [userId]
         );
         
-        if (!user[0].can_post) {
+        if (user.length === 0 || !user[0].can_post) {
             return res.status(403).json({ error: 'Posting is disabled for your account' });
         }
         
-        // Create post
+        // 创建帖子
         const [result] = await pool.execute(
             'INSERT INTO posts (user_id, title, content) VALUES (?, ?, ?)',
             [userId, title, content]
         );
         
-        // Update vitality (+2 for posting)
-        await updateVitality(userId, 2, 'create_post');
+        console.log('Post created with ID:', result.insertId);
         
-        res.status(201).json({ id: result.insertId, message: 'Post created successfully' });
+        // 更新活力值
+        await updateVitality(userId, 2, 'create_post', 'post', result.insertId);
+        
+        res.status(201).json({ 
+            id: result.insertId, 
+            message: 'Post created successfully' 
+        });
     } catch (error) {
         console.error('Error creating post:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        console.error('Error stack:', error.stack);
+        res.status(500).json({ 
+            error: 'Internal server error',
+            details: error.message 
+        });
     }
 });
 
