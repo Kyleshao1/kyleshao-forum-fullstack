@@ -515,6 +515,133 @@ async function loadConversation(userId) {
     }
 }
 
+async function createTicket() {
+    if (!currentUser) {
+        alert('Please login to create a ticket');
+        return;
+    }
+    
+    const title = document.getElementById('ticket-title')?.value;
+    const content = document.getElementById('ticket-content')?.value;
+    
+    if (!title || !content) {
+        alert('Title and content are required');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/tickets`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({ title, content })
+        });
+        
+        if (response.ok) {
+            alert('Ticket created successfully!');
+            document.getElementById('ticket-title').value = '';
+            document.getElementById('ticket-content').value = '';
+            loadUserTickets();
+        } else {
+            const error = await response.json().catch(() => ({ error: 'Failed to create ticket' }));
+            alert(error.error || 'Failed to create ticket');
+        }
+    } catch (error) {
+        console.error('Error creating ticket:', error);
+        alert('Failed to create ticket. Please check your connection.');
+    }
+}
+
+async function loadUserTickets() {
+    if (!currentUser) return;
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/tickets/user`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (response.ok) {
+            const tickets = await response.json();
+            if (Array.isArray(tickets)) {
+                renderTickets(tickets);
+            }
+        }
+    } catch (error) {
+        console.error('Error loading tickets:', error);
+    }
+}
+
+function renderTickets(tickets) {
+    const container = document.getElementById('tickets-container');
+    if (!container) return;
+    
+    if (!tickets || tickets.length === 0) {
+        container.innerHTML = '<p>No tickets yet.</p>';
+        return;
+    }
+    
+    container.innerHTML = tickets.map(ticket => `
+        <div class="ticket" data-id="${ticket.id}">
+            <div class="ticket-header">
+                <h4>${ticket.title}</h4>
+                <span class="ticket-status ${ticket.status}">${ticket.status}</span>
+            </div>
+            <div class="ticket-content">${ticket.content}</div>
+            <div class="ticket-footer">
+                <span class="ticket-date">Created: ${new Date(ticket.created_at).toLocaleString()}</span>
+                ${currentUser && (currentUser.role === 'admin' || currentUser.role === 'super_admin') ? `
+                    <div class="ticket-actions">
+                        <button onclick="updateTicketStatus(${ticket.id}, 'pending')">Pending</button>
+                        <button onclick="updateTicketStatus(${ticket.id}, 'completed')">Complete</button>
+                        <button onclick="updateTicketStatus(${ticket.id}, 'closed')">Close</button>
+                        <button class="danger" onclick="deleteTicket(${ticket.id})">Delete</button>
+                    </div>
+                ` : ''}
+            </div>
+        </div>
+    `).join('');
+}
+
+// 更新导航函数，添加工单加载
+function showSection(sectionName) {
+    if (!sections[sectionName]) {
+        console.error(`Section ${sectionName} not found`);
+        return;
+    }
+    
+    // 先隐藏所有section
+    Object.entries(sections).forEach(([name, section]) => {
+        if (section) {
+            if (name === sectionName) {
+                section.classList.remove('hidden');
+            } else {
+                section.classList.add('hidden');
+            }
+        }
+    });
+    
+    if (sectionName === 'profile' && currentUser) {
+        loadProfile();
+    } else if (sectionName === 'posts') {
+        loadPosts();
+    } else if (sectionName === 'messages' && currentUser) {
+        loadConversations();
+    } else if (sectionName === 'tickets' && currentUser) {
+        loadUserTickets();
+        
+        // 如果是管理员，显示管理面板并加载所有工单
+        if (currentUser.role === 'admin' || currentUser.role === 'super_admin') {
+            document.getElementById('admin-tickets-panel').classList.remove('hidden');
+            loadAllTickets();
+        } else {
+            document.getElementById('admin-tickets-panel').classList.add('hidden');
+        }
+    }
+}
+
+
 function renderMessages(messages) {
     const container = document.getElementById('chat-messages');
     if (!container) return;
