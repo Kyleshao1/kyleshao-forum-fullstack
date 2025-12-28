@@ -862,6 +862,100 @@ app.post('/api/tickets', authenticateToken, async (req, res) => {
     }
 });
 
+// Get user's tickets
+app.get('/api/tickets/user', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        console.log('Fetching tickets for user:', userId);
+        
+        const [tickets] = await pool.execute(
+            'SELECT * FROM tickets WHERE user_id = ? ORDER BY created_at DESC',
+            [userId]
+        );
+        
+        console.log('Found tickets:', tickets.length);
+        res.json(tickets);
+    } catch (error) {
+        console.error('Error fetching user tickets:', error);
+        res.status(500).json({ 
+            error: 'Internal server error',
+            details: error.message 
+        });
+    }
+});
+
+// Get all tickets (admin only)
+app.get('/api/tickets', authenticateToken, isAdmin, async (req, res) => {
+    try {
+        console.log('Fetching all tickets (admin)');
+        
+        const [tickets] = await pool.execute(`
+            SELECT t.*, u.username 
+            FROM tickets t 
+            JOIN users u ON t.user_id = u.id 
+            ORDER BY t.created_at DESC
+        `);
+        
+        res.json(tickets);
+    } catch (error) {
+        console.error('Error fetching all tickets:', error);
+        res.status(500).json({ 
+            error: 'Internal server error',
+            details: error.message 
+        });
+    }
+});
+
+// Update ticket status
+app.put('/api/tickets/:id', authenticateToken, isAdmin, async (req, res) => {
+    try {
+        const ticketId = req.params.id;
+        const { status } = req.body;
+        
+        console.log('Updating ticket:', ticketId, 'to status:', status);
+        
+        // Validate status
+        const validStatuses = ['open', 'pending', 'closed', 'deleted', 'completed'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({ error: 'Invalid status' });
+        }
+        
+        await pool.execute(
+            'UPDATE tickets SET status = ? WHERE id = ?',
+            [status, ticketId]
+        );
+        
+        res.json({ message: 'Ticket status updated successfully' });
+    } catch (error) {
+        console.error('Error updating ticket:', error);
+        res.status(500).json({ 
+            error: 'Internal server error',
+            details: error.message 
+        });
+    }
+});
+
+// Delete ticket
+app.delete('/api/tickets/:id', authenticateToken, isAdmin, async (req, res) => {
+    try {
+        const ticketId = req.params.id;
+        console.log('Deleting ticket:', ticketId);
+        
+        await pool.execute(
+            'DELETE FROM tickets WHERE id = ?',
+            [ticketId]
+        );
+        
+        res.json({ message: 'Ticket deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting ticket:', error);
+        res.status(500).json({ 
+            error: 'Internal server error',
+            details: error.message 
+        });
+    }
+});
+
 // Admin routes
 app.post('/api/admin/warn', authenticateToken, isAdmin, async (req, res) => {
     try {
