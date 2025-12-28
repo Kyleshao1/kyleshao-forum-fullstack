@@ -126,6 +126,31 @@
                 </div>
             </section>
 
+            <!-- Tickets Section -->
+            <section id="tickets-section" class="section hidden">
+                <h2>Support Tickets</h2>
+                
+                <!-- Create Ticket Form -->
+                <div class="ticket-form">
+                    <h3>Create New Ticket</h3>
+                    <input type="text" id="ticket-title" placeholder="Ticket Title">
+                    <textarea id="ticket-content" placeholder="Describe your issue..." rows="5"></textarea>
+                    <button onclick="createTicket()">Submit Ticket</button>
+                </div>
+                
+                <!-- User Tickets List -->
+                <div class="user-tickets">
+                    <h3>My Tickets</h3>
+                    <div id="tickets-container"></div>
+                </div>
+                
+                <!-- Admin Tickets Panel (hidden by default) -->
+                <div id="admin-tickets-panel" class="hidden">
+                    <h3>All Tickets (Admin View)</h3>
+                    <div id="admin-tickets-container"></div>
+                </div>
+            </section>
+
             <!-- Messages Section -->
             <section id="messages-section" class="section hidden">
                 <h2>Messages</h2>
