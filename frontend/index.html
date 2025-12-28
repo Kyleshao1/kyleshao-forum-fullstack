@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Community Forum</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+</head>
+<body>
+    <div id="app">
+        <!-- Navigation -->
+        <nav class="navbar">
+            <div class="nav-brand">Community Forum</div>
+            <div class="nav-links">
+                <a href="#" onclick="showSection('home')">Home</a>
+                <a href="#" onclick="showSection('posts')">Posts</a>
+                <a href="#" onclick="showSection('create')">Create Post</a>
+                <a href="#" onclick="showSection('profile')">Profile</a>
+                <a href="#" onclick="showSection('tickets')">Tickets</a>
+                <a href="#" onclick="showSection('messages')">Messages</a>
+                <a href="#" id="auth-link" onclick="toggleAuth()">Login</a>
+            </div>
+        </nav>
+
+        <!-- Login/Register Modal -->
+        <div id="auth-modal" class="modal hidden">
+            <div class="modal-content">
+                <h2 id="auth-title">Login</h2>
+                <div id="auth-form">
+                    <input type="text" id="auth-username" placeholder="Username">
+                    <input type="email" id="auth-email" placeholder="Email (for register)" class="hidden">
+                    <input type="password" id="auth-password" placeholder="Password">
+                    <input type="password" id="auth-confirm-password" placeholder="Confirm Password" class="hidden">
+                    <button onclick="handleAuth()">Login</button>
+                    <p id="auth-toggle">Don't have an account? <a href="#" onclick="toggleAuthType()">Register</a></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="container">
+            <!-- Home Section -->
+            <section id="home-section" class="section">
+                <h1>Welcome to Community Forum</h1>
+                <div class="stats">
+                    <div class="stat">
+                        <h3 id="total-posts">0</h3>
+                        <p>Total Posts</p>
+                    </div>
+                    <div class="stat">
+                        <h3 id="total-users">0</h3>
+                        <p>Total Users</p>
+                    </div>
+                    <div class="stat">
+                        <h3 id="active-users">0</h3>
+                        <p>Active Users</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Posts Section -->
+            <section id="posts-section" class="section hidden">
+                <h2>Recent Posts</h2>
+                <div id="posts-container"></div>
+            </section>
+
+            <!-- Create Post Section -->
+            <section id="create-section" class="section hidden">
+                <h2>Create New Post</h2>
+                <div class="post-editor">
+                    <input type="text" id="post-title" placeholder="Post Title">
+                    <div class="editor-toolbar">
+                        <button onclick="formatText('bold')"><i class="fas fa-bold"></i></button>
+                        <button onclick="formatText('italic')"><i class="fas fa-italic"></i></button>
+                        <button onclick="formatText('code')"><i class="fas fa-code"></i></button>
+                        <button onclick="insertLatex()"><i class="fas fa-square-root-alt"></i></button>
+                    </div>
+                    <textarea id="post-content" placeholder="Write your post in Markdown..."></textarea>
+                    <button onclick="createPost()">Submit Post</button>
+                </div>
+                <div class="preview">
+                    <h3>Preview</h3>
+                    <div id="preview-content"></div>
+                </div>
+            </section>
+
+            <!-- Profile Section -->
+            <section id="profile-section" class="section hidden">
+                <div class="profile-header">
+                    <div class="profile-info">
+                        <h2 id="profile-username">Username</h2>
+                        <div id="profile-badge" class="badge beginner">Beginner</div>
+                        <div class="vitality">
+                            <span>Vitality: </span>
+                            <span id="profile-vitality">0</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="profile-stats">
+                    <div class="stat">
+                        <h3 id="profile-posts">0</h3>
+                        <p>Posts</p>
+                    </div>
+                    <div class="stat">
+                        <h3 id="profile-replies">0</h3>
+                        <p>Replies</p>
+                    </div>
+                    <div class="stat">
+                        <h3 id="profile-likes">0</h3>
+                        <p>Likes Received</p>
+                    </div>
+                    <div class="stat">
+                        <h3 id="profile-useful">0</h3>
+                        <p>Useful Marks</p>
+                    </div>
+                </div>
+                <div class="profile-edit">
+                    <h3>Edit Profile</h3>
+                    <textarea id="profile-bio" placeholder="Your bio..."></textarea>
+                    <input type="text" id="profile-signature" placeholder="Your signature...">
+                    <button onclick="updateProfile()">Update Profile</button>
+                </div>
+            </section>
+
+            <!-- Messages Section -->
+            <section id="messages-section" class="section hidden">
+                <h2>Messages</h2>
+                <div class="messages-container">
+                    <div class="conversations">
+                        <h3>Conversations</h3>
+                        <div id="conversations-list"></div>
+                    </div>
+                    <div class="chat">
+                        <div id="chat-header"></div>
+                        <div id="chat-messages"></div>
+                        <div class="chat-input">
+                            <input type="text" id="message-input" placeholder="Type a message...">
+                            <button onclick="sendMessage()">Send</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Admin Panel (only for admins) -->
+        <div id="admin-panel" class="hidden">
+            <h2>Admin Panel</h2>
+            <div class="admin-actions">
+                <button onclick="showAdminSection('users')">Manage Users</button>
+                <button onclick="showAdminSection('reports')">Reports</button>
+                <button onclick="showAdminSection('tickets')">Tickets</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
