@@ -204,12 +204,28 @@ function showSection(sectionName) {
         }
     });
     
+    // 加载相应部分的数据
     if (sectionName === 'profile' && currentUser) {
         loadProfile();
     } else if (sectionName === 'posts') {
         loadPosts();
     } else if (sectionName === 'messages' && currentUser) {
         loadConversations();
+    } else if (sectionName === 'tickets' && currentUser) {
+        loadUserTickets();
+        
+        // 如果是管理员，显示管理面板并加载所有工单
+        if (currentUser.role === 'admin' || currentUser.role === 'super_admin') {
+            // 确保 admin-tickets-panel 元素存在
+            const adminPanel = document.getElementById('admin-tickets-panel');
+            if (adminPanel) {
+                adminPanel.classList.remove('hidden');
+                loadAllTickets();
+            }
+        } else {
+            const adminPanel = document.getElementById('admin-tickets-panel');
+            if (adminPanel) adminPanel.classList.add('hidden');
+        }
     }
 }
 
@@ -603,6 +619,119 @@ function renderTickets(tickets) {
         </div>
     `).join('');
 }
+
+async function loadAllTickets() {
+    if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'super_admin')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/tickets`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (response.ok) {
+            const tickets = await response.json();
+            if (Array.isArray(tickets)) {
+                renderAdminTickets(tickets);
+            }
+        } else {
+            console.error('Failed to load all tickets:', response.status);
+        }
+    } catch (error) {
+        console.error('Error loading all tickets:', error);
+    }
+}
+
+function renderAdminTickets(tickets) {
+    const container = document.getElementById('admin-tickets-container');
+    if (!container) return;
+    
+    if (!tickets || tickets.length === 0) {
+        container.innerHTML = '<p>No tickets found.</p>';
+        return;
+    }
+    
+    container.innerHTML = tickets.map(ticket => `
+        <div class="ticket" data-id="${ticket.id}">
+            <div class="ticket-header">
+                <h4>${ticket.title} (by: ${ticket.username || 'Unknown'})</h4>
+                <span class="ticket-status ${ticket.status}">${ticket.status}</span>
+            </div>
+            <div class="ticket-content">${ticket.content}</div>
+            <div class="ticket-footer">
+                <span class="ticket-date">Created: ${new Date(ticket.created_at).toLocaleString()}</span>
+                <div class="ticket-actions">
+                    <button onclick="updateTicketStatus(${ticket.id}, 'pending')">Pending</button>
+                    <button onclick="updateTicketStatus(${ticket.id}, 'completed')">Complete</button>
+                    <button onclick="updateTicketStatus(${ticket.id}, 'closed')">Close</button>
+                    <button class="danger" onclick="deleteTicket(${ticket.id})">Delete</button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function updateTicketStatus(ticketId, status) {
+    if (!confirm(`Are you sure you want to change ticket #${ticketId} to ${status}?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({ status })
+        });
+        
+        if (response.ok) {
+            alert('Ticket status updated!');
+            // 重新加载工单
+            if (currentUser.role === 'admin' || currentUser.role === 'super_admin') {
+                loadAllTickets();
+            }
+            loadUserTickets();
+        } else {
+            const error = await response.json().catch(() => ({ error: 'Failed to update ticket' }));
+            alert(error.error || 'Failed to update ticket');
+        }
+    } catch (error) {
+        console.error('Error updating ticket:', error);
+        alert('Failed to update ticket. Please check your connection.');
+    }
+}
+
+async function deleteTicket(ticketId) {
+    if (!confirm('Are you sure you want to delete this ticket? This action cannot be undone.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (response.ok) {
+            alert('Ticket deleted successfully!');
+            // 重新加载工单
+            if (currentUser.role === 'admin' || currentUser.role === 'super_admin') {
+                loadAllTickets();
+            }
+            loadUserTickets();
+        } else {
+            const error = await response.json().catch(() => ({ error: 'Failed to delete ticket' }));
+            alert(error.error || 'Failed to delete ticket');
+        }
+    } catch (error) {
+        console.error('Error deleting ticket:', error);
+        alert('Failed to delete ticket. Please check your connection.');
+    }
+}
+
 
 // 更新导航函数，添加工单加载
 function showSection(sectionName) {
