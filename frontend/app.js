@@ -20,15 +20,24 @@ const sections = {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('Forum app initialized');
     checkAuth();
-    loadPosts();
     setupEventListeners();
+    
+    // 默认显示home部分
+    if (sections.home) {
+        showSection('home');
+    } else {
+        console.error('Home section not found');
+    }
 });
 
 // Auth Functions
 function toggleAuth() {
     const modal = document.getElementById('auth-modal');
-    modal.classList.toggle('hidden');
+    if (modal) {
+        modal.classList.toggle('hidden');
+    }
 }
 
 function toggleAuthType() {
@@ -37,27 +46,38 @@ function toggleAuthType() {
     const emailInput = document.getElementById('auth-email');
     const confirmInput = document.getElementById('auth-confirm-password');
     
+    if (!title) return;
+    
     if (title.textContent === 'Login') {
         title.textContent = 'Register';
-        toggle.innerHTML = 'Already have an account? <a href="#" onclick="toggleAuthType()">Login</a>';
-        emailInput.classList.remove('hidden');
-        confirmInput.classList.remove('hidden');
+        if (toggle) toggle.innerHTML = 'Already have an account? <a href="#" onclick="toggleAuthType()">Login</a>';
+        if (emailInput) emailInput.classList.remove('hidden');
+        if (confirmInput) confirmInput.classList.remove('hidden');
     } else {
         title.textContent = 'Login';
-        toggle.innerHTML = 'Don\'t have an account? <a href="#" onclick="toggleAuthType()">Register</a>';
-        emailInput.classList.add('hidden');
-        confirmInput.classList.add('hidden');
+        if (toggle) toggle.innerHTML = 'Don\'t have an account? <a href="#" onclick="toggleAuthType()">Register</a>';
+        if (emailInput) emailInput.classList.add('hidden');
+        if (confirmInput) confirmInput.classList.add('hidden');
     }
 }
 
 async function handleAuth() {
-    const username = document.getElementById('auth-username').value;
-    const email = document.getElementById('auth-email').value;
-    const password = document.getElementById('auth-password').value;
-    const confirm = document.getElementById('auth-confirm-password').value;
-    const isRegister = document.getElementById('auth-title').textContent === 'Register';
+    const username = document.getElementById('auth-username')?.value;
+    const email = document.getElementById('auth-email')?.value;
+    const password = document.getElementById('auth-password')?.value;
+    const confirm = document.getElementById('auth-confirm-password')?.value;
+    const isRegister = document.getElementById('auth-title')?.textContent === 'Register';
+    
+    if (!username || !password) {
+        alert('Username and password are required');
+        return;
+    }
     
     if (isRegister) {
+        if (!email) {
+            alert('Email is required for registration');
+            return;
+        }
         if (password !== confirm) {
             alert('Passwords do not match');
             return;
@@ -87,14 +107,20 @@ async function login(username, password) {
             toggleAuth();
             showSection('home');
             
+            // 加载帖子
+            loadPosts();
+            
             if (currentUser.role === 'admin' || currentUser.role === 'super_admin') {
-                document.getElementById('admin-panel').classList.remove('hidden');
+                const adminPanel = document.getElementById('admin-panel');
+                if (adminPanel) adminPanel.classList.remove('hidden');
             }
         } else {
-            alert('Login failed');
+            const error = await response.json().catch(() => ({ error: 'Login failed' }));
+            alert(error.error || 'Login failed');
         }
     } catch (error) {
         console.error('Login error:', error);
+        alert('Login failed. Please check your connection.');
     }
 }
 
@@ -107,13 +133,16 @@ async function register(username, email, password) {
         });
         
         if (response.ok) {
+            const result = await response.json();
             alert('Registration successful! Please login.');
             toggleAuthType();
         } else {
-            alert('Registration failed');
+            const error = await response.json().catch(() => ({ error: 'Registration failed' }));
+            alert(error.error || 'Registration failed');
         }
     } catch (error) {
         console.error('Register error:', error);
+        alert('Registration failed. Please check your connection.');
     }
 }
 
@@ -124,6 +153,7 @@ function logout() {
     currentUser = null;
     updateUI();
     showSection('home');
+    loadPosts(); // 重新加载帖子（作为游客）
 }
 
 function checkAuth() {
@@ -131,18 +161,25 @@ function checkAuth() {
     const user = localStorage.getItem('user');
     
     if (token && user) {
-        authToken = token;
-        currentUser = JSON.parse(user);
-        updateUI();
+        try {
+            authToken = token;
+            currentUser = JSON.parse(user);
+            updateUI();
+        } catch (e) {
+            console.error('Error parsing user data:', e);
+        }
     }
 }
 
 function updateUI() {
     const authLink = document.getElementById('auth-link');
+    if (!authLink) return;
+    
     if (currentUser) {
         authLink.textContent = 'Logout';
         authLink.onclick = logout;
-        document.getElementById('profile-username').textContent = currentUser.username;
+        const profileUsername = document.getElementById('profile-username');
+        if (profileUsername) profileUsername.textContent = currentUser.username;
     } else {
         authLink.textContent = 'Login';
         authLink.onclick = toggleAuth;
@@ -151,14 +188,27 @@ function updateUI() {
 
 // Navigation
 function showSection(sectionName) {
-    Object.values(sections).forEach(section => section.classList.add('hidden'));
-    sections[sectionName].classList.remove('hidden');
+    if (!sections[sectionName]) {
+        console.error(`Section ${sectionName} not found`);
+        return;
+    }
+    
+    // 先隐藏所有section
+    Object.entries(sections).forEach(([name, section]) => {
+        if (section) {
+            if (name === sectionName) {
+                section.classList.remove('hidden');
+            } else {
+                section.classList.add('hidden');
+            }
+        }
+    });
     
     if (sectionName === 'profile' && currentUser) {
         loadProfile();
     } else if (sectionName === 'posts') {
         loadPosts();
-    } else if (sectionName === 'messages') {
+    } else if (sectionName === 'messages' && currentUser) {
         loadConversations();
     }
 }
@@ -167,40 +217,85 @@ function showSection(sectionName) {
 async function loadPosts() {
     try {
         const response = await fetch(`${API_BASE_URL}/api/posts`);
-        posts = await response.json();
-        renderPosts();
+        if (response.ok) {
+            const data = await response.json();
+            // 确保data是数组
+            if (Array.isArray(data)) {
+                posts = data;
+                renderPosts();
+            } else {
+                console.error('API did not return an array:', data);
+                posts = [];
+                renderPosts();
+            }
+        } else {
+            console.error('Failed to load posts:', response.status);
+            posts = [];
+            renderPosts();
+        }
     } catch (error) {
         console.error('Error loading posts:', error);
+        posts = [];
+        renderPosts();
     }
 }
 
 function renderPosts() {
     const container = document.getElementById('posts-container');
-    container.innerHTML = posts.map(post => `
+    if (!container) return;
+    
+    if (!posts || posts.length === 0) {
+        container.innerHTML = '<p>No posts yet. Be the first to post!</p>';
+        return;
+    }
+    
+    container.innerHTML = posts.map(post => {
+        // 检查post是否有必要的字段
+        if (!post || !post.id) return '';
+        
+        const username = post.username || 'Anonymous';
+        const vitality = post.vitality || 0;
+        const role = post.role || 'user';
+        const likes_count = post.likes_count || 0;
+        const useful_count = post.useful_count || 0;
+        const replies_count = post.replies_count || 0;
+        
+        return `
         <div class="post" data-id="${post.id}">
             <div class="post-header">
                 <div class="post-author">
-                    <span class="username">${post.author.username}</span>
-                    <span class="badge ${getBadgeClass(post.author.vitality, post.author.role)}">
-                        ${getBadgeName(post.author.vitality, post.author.role)}
+                    <span class="username">${username}</span>
+                    <span class="badge ${getBadgeClass(vitality, role)}">
+                        ${getBadgeName(vitality, role)}
                     </span>
                 </div>
                 <span class="post-date">${new Date(post.created_at).toLocaleDateString()}</span>
             </div>
-            <h3 class="post-title">${post.title}</h3>
-            <div class="post-content">${renderMarkdown(post.content)}</div>
+            <h3 class="post-title">${post.title || 'Untitled'}</h3>
+            <div class="post-content">${renderMarkdown(post.content || '')}</div>
             <div class="post-actions">
-                <button class="action-button" onclick="likePost(${post.id})">
-                    <i class="fas fa-thumbs-up"></i>
-                    <span>${post.likes_count}</span>
-                </button>
-                <button class="action-button" onclick="markUseful(${post.id})">
-                    <i class="fas fa-check-circle"></i>
-                    <span>${post.useful_count}</span>
-                </button>
+                ${currentUser ? `
+                    <button class="action-button" onclick="likePost(${post.id})">
+                        <i class="fas fa-thumbs-up"></i>
+                        <span>${likes_count}</span>
+                    </button>
+                    <button class="action-button" onclick="markUseful(${post.id})">
+                        <i class="fas fa-check-circle"></i>
+                        <span>${useful_count}</span>
+                    </button>
+                ` : `
+                    <button class="action-button" onclick="toggleAuth()">
+                        <i class="fas fa-thumbs-up"></i>
+                        <span>${likes_count}</span>
+                    </button>
+                    <button class="action-button" onclick="toggleAuth()">
+                        <i class="fas fa-check-circle"></i>
+                        <span>${useful_count}</span>
+                    </button>
+                `}
                 <button class="action-button" onclick="showReplies(${post.id})">
                     <i class="fas fa-comment"></i>
-                    <span>${post.replies_count}</span>
+                    <span>${replies_count}</span>
                 </button>
                 ${currentUser && (currentUser.role === 'admin' || currentUser.role === 'super_admin') ? `
                     <button class="action-button danger" onclick="deletePost(${post.id})">
@@ -210,7 +305,8 @@ function renderPosts() {
             </div>
             <div id="replies-${post.id}" class="replies-container hidden"></div>
         </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
 async function createPost() {
@@ -219,8 +315,13 @@ async function createPost() {
         return;
     }
     
-    const title = document.getElementById('post-title').value;
-    const content = document.getElementById('post-content').value;
+    const title = document.getElementById('post-title')?.value;
+    const content = document.getElementById('post-content')?.value;
+    
+    if (!title || !content) {
+        alert('Title and content are required');
+        return;
+    }
     
     try {
         const response = await fetch(`${API_BASE_URL}/api/posts`, {
@@ -238,26 +339,38 @@ async function createPost() {
             document.getElementById('post-content').value = '';
             loadPosts();
             showSection('posts');
+        } else {
+            const error = await response.json().catch(() => ({ error: 'Failed to create post' }));
+            alert(error.error || 'Failed to create post');
         }
     } catch (error) {
         console.error('Error creating post:', error);
+        alert('Failed to create post. Please check your connection.');
     }
 }
 
 // Markdown and LaTeX Rendering
 function renderMarkdown(text) {
-    const html = marked.parse(text);
-    return html.replace(/\$\$(.*?)\$\$/g, (match, latex) => {
-        try {
-            return katex.renderToString(latex, { throwOnError: false });
-        } catch (e) {
-            return match;
-        }
-    });
+    if (!text) return '';
+    try {
+        const html = marked.parse(text);
+        return html.replace(/\$\$(.*?)\$\$/g, (match, latex) => {
+            try {
+                return katex.renderToString(latex, { throwOnError: false });
+            } catch (e) {
+                return match;
+            }
+        });
+    } catch (e) {
+        console.error('Error rendering markdown:', e);
+        return text;
+    }
 }
 
 function formatText(type) {
     const textarea = document.getElementById('post-content');
+    if (!textarea) return;
+    
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
     const selectedText = textarea.value.substring(start, end);
@@ -283,6 +396,8 @@ function formatText(type) {
 
 function insertLatex() {
     const textarea = document.getElementById('post-content');
+    if (!textarea) return;
+    
     const latex = prompt('Enter LaTeX formula:');
     if (latex) {
         const cursorPos = textarea.selectionStart;
@@ -300,23 +415,28 @@ async function loadProfile() {
         const response = await fetch(`${API_BASE_URL}/api/users/${currentUser.id}`, {
             headers: { 'Authorization': `Bearer ${authToken}` }
         });
-        const userData = await response.json();
         
-        document.getElementById('profile-vitality').textContent = userData.vitality;
-        document.getElementById('profile-bio').value = userData.bio || '';
-        document.getElementById('profile-signature').value = userData.signature || '';
-        
-        const badge = document.getElementById('profile-badge');
-        badge.className = `badge ${getBadgeClass(userData.vitality, userData.role)}`;
-        badge.textContent = getBadgeName(userData.vitality, userData.role);
+        if (response.ok) {
+            const userData = await response.json();
+            
+            document.getElementById('profile-vitality').textContent = userData.vitality || 0;
+            document.getElementById('profile-bio').value = userData.bio || '';
+            document.getElementById('profile-signature').value = userData.signature || '';
+            
+            const badge = document.getElementById('profile-badge');
+            if (badge) {
+                badge.className = `badge ${getBadgeClass(userData.vitality, userData.role)}`;
+                badge.textContent = getBadgeName(userData.vitality, userData.role);
+            }
+        }
     } catch (error) {
         console.error('Error loading profile:', error);
     }
 }
 
 async function updateProfile() {
-    const bio = document.getElementById('profile-bio').value;
-    const signature = document.getElementById('profile-signature').value;
+    const bio = document.getElementById('profile-bio')?.value || '';
+    const signature = document.getElementById('profile-signature')?.value || '';
     
     try {
         const response = await fetch(`${API_BASE_URL}/api/users/${currentUser.id}`, {
@@ -330,9 +450,12 @@ async function updateProfile() {
         
         if (response.ok) {
             alert('Profile updated!');
+        } else {
+            alert('Failed to update profile');
         }
     } catch (error) {
         console.error('Error updating profile:', error);
+        alert('Failed to update profile');
     }
 }
 
@@ -344,8 +467,14 @@ async function loadConversations() {
         const response = await fetch(`${API_BASE_URL}/api/messages/conversations`, {
             headers: { 'Authorization': `Bearer ${authToken}` }
         });
-        conversations = await response.json();
-        renderConversations();
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (Array.isArray(data)) {
+                conversations = data;
+                renderConversations();
+            }
+        }
     } catch (error) {
         console.error('Error loading conversations:', error);
     }
@@ -353,10 +482,17 @@ async function loadConversations() {
 
 function renderConversations() {
     const container = document.getElementById('conversations-list');
+    if (!container) return;
+    
+    if (!conversations || conversations.length === 0) {
+        container.innerHTML = '<p>No conversations yet</p>';
+        return;
+    }
+    
     container.innerHTML = conversations.map(conv => `
-        <div class="conversation-item" onclick="loadConversation(${conv.user.id})">
-            <div class="conv-user">${conv.user.username}</div>
-            <div class="conv-preview">${conv.last_message?.content?.substring(0, 50) || ''}</div>
+        <div class="conversation-item" onclick="loadConversation(${conv.user_id})">
+            <div class="conv-user">${conv.username}</div>
+            <div class="conv-preview">${(conv.last_message || '').substring(0, 50)}</div>
         </div>
     `).join('');
 }
@@ -366,9 +502,14 @@ async function loadConversation(userId) {
         const response = await fetch(`${API_BASE_URL}/api/messages/${userId}`, {
             headers: { 'Authorization': `Bearer ${authToken}` }
         });
-        const messages = await response.json();
-        renderMessages(messages);
-        currentConversation = userId;
+        
+        if (response.ok) {
+            const messages = await response.json();
+            if (Array.isArray(messages)) {
+                renderMessages(messages);
+                currentConversation = userId;
+            }
+        }
     } catch (error) {
         console.error('Error loading conversation:', error);
     }
@@ -376,9 +517,16 @@ async function loadConversation(userId) {
 
 function renderMessages(messages) {
     const container = document.getElementById('chat-messages');
+    if (!container) return;
+    
+    if (!messages || messages.length === 0) {
+        container.innerHTML = '<p>No messages yet</p>';
+        return;
+    }
+    
     container.innerHTML = messages.map(msg => `
         <div class="message ${msg.sender_id === currentUser.id ? 'sent' : 'received'}">
-            <div class="message-content">${msg.content}</div>
+            <div class="message-content">${msg.content || ''}</div>
             <div class="message-time">${new Date(msg.created_at).toLocaleTimeString()}</div>
         </div>
     `).join('');
@@ -386,10 +534,13 @@ function renderMessages(messages) {
 }
 
 async function sendMessage() {
-    if (!currentConversation) return;
+    if (!currentConversation) {
+        alert('Please select a conversation first');
+        return;
+    }
     
     const input = document.getElementById('message-input');
-    const content = input.value.trim();
+    const content = input?.value.trim();
     
     if (!content) return;
     
@@ -439,10 +590,105 @@ function getBadgeName(vitality, role) {
 function setupEventListeners() {
     // Update preview in real-time
     const postContent = document.getElementById('post-content');
-    if (postContent) {
+    const previewContent = document.getElementById('preview-content');
+    
+    if (postContent && previewContent) {
         postContent.addEventListener('input', () => {
-            document.getElementById('preview-content').innerHTML = 
-                renderMarkdown(postContent.value);
+            previewContent.innerHTML = renderMarkdown(postContent.value);
         });
+    }
+}
+
+// 添加缺失的函数
+async function likePost(postId) {
+    if (!currentUser) {
+        toggleAuth();
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/posts/${postId}/like`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        if (response.ok) {
+            loadPosts(); // 重新加载帖子
+        }
+    } catch (error) {
+        console.error('Error liking post:', error);
+    }
+}
+
+async function markUseful(postId) {
+    if (!currentUser) {
+        toggleAuth();
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/posts/${postId}/useful`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        if (response.ok) {
+            loadPosts(); // 重新加载帖子
+        }
+    } catch (error) {
+        console.error('Error marking post useful:', error);
+    }
+}
+
+async function showReplies(postId) {
+    const container = document.getElementById(`replies-${postId}`);
+    if (!container) return;
+    
+    container.classList.toggle('hidden');
+    
+    if (!container.classList.contains('hidden')) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/posts/${postId}/replies`);
+            if (response.ok) {
+                const replies = await response.json();
+                container.innerHTML = replies.map(reply => `
+                    <div class="reply">
+                        <div class="reply-author">
+                            <strong>${reply.username}</strong>
+                            <span class="badge ${getBadgeClass(reply.vitality, reply.role)}">
+                                ${getBadgeName(reply.vitality, reply.role)}
+                            </span>
+                        </div>
+                        <div class="reply-content">${reply.content}</div>
+                        <div class="reply-date">${new Date(reply.created_at).toLocaleString()}</div>
+                    </div>
+                `).join('');
+            }
+        } catch (error) {
+            console.error('Error loading replies:', error);
+        }
+    }
+}
+
+async function deletePost(postId) {
+    if (!confirm('Are you sure you want to delete this post?')) return;
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/posts/${postId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        if (response.ok) {
+            loadPosts(); // 重新加载帖子
+        }
+    } catch (error) {
+        console.error('Error deleting post:', error);
     }
 }
