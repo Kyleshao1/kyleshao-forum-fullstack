@@ -1,5 +1,5 @@
 // Configuration
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://your-backend.onrender.com';
+const API_BASE_URL = 'https://kyleshao-forum-backend.onrender.com';
 
 // State management
 let currentUser = null;
