@@ -1,0 +1,12 @@
+{
+  "name": "forum-frontend",
+  "version": "1.0.0",
+  "description": "Forum frontend for Netlify deployment",
+  "scripts": {
+    "build": "echo 'No build step needed for static site'"
+  },
+  "dependencies": {
+    "marked": "^12.0.0",
+    "katex": "^0.16.9"
+  }
+}
