@@ -84,7 +84,7 @@ async function updateVitality(userId, amount, reason, source_type = null, source
         );
         
         await pool.execute(
-            'INSERT INTO vitality_history (user_id, change_amount, reason, source_type, source_id) VALUES (?, ?, ?, ?, ?)',
+            'INSERT INTO vitality_history (author_id, change_amount, reason, source_type, source_id) VALUES (?, ?, ?, ?, ?)',
             [userId, amount, reason, source_type, source_id]
         );
     } catch (error) {
@@ -204,7 +204,7 @@ app.get('/api/posts', async (req, res) => {
                    (SELECT COUNT(*) FROM usefuls WHERE post_id = p.id) as useful_count,
                    (SELECT COUNT(*) FROM replies WHERE post_id = p.id) as replies_count
             FROM posts p
-            JOIN users u ON p.user_id = u.id
+            JOIN users u ON p.author_id = u.id
             ORDER BY p.created_at DESC
             LIMIT 50
         `);
@@ -244,7 +244,7 @@ app.post('/api/posts', authenticateToken, async (req, res) => {
         
         // 创建帖子
         const [result] = await pool.execute(
-            'INSERT INTO posts (user_id, title, content) VALUES (?, ?, ?)',
+            'INSERT INTO posts (author_id, title, content) VALUES (?, ?, ?)',
             [userId, title, content]
         );
         
@@ -275,7 +275,7 @@ app.delete('/api/posts/:id', authenticateToken, isAdmin, async (req, res) => {
         
         // Get post author
         const [posts] = await pool.execute(
-            'SELECT user_id FROM posts WHERE id = ?',
+            'SELECT author_id FROM posts WHERE id = ?',
             [postId]
         );
         
@@ -283,7 +283,7 @@ app.delete('/api/posts/:id', authenticateToken, isAdmin, async (req, res) => {
             return res.status(404).json({ error: 'Post not found' });
         }
         
-        const authorId = posts[0].user_id;
+        const authorId = posts[0].author_id;
         
         // Delete post
         await pool.execute('DELETE FROM posts WHERE id = ?', [postId]);
@@ -330,43 +330,43 @@ app.post('/api/posts/:id/like', authenticateToken, async (req, res) => {
         
         // Check if already liked
         const [existing] = await pool.execute(
-            'SELECT id FROM likes WHERE user_id = ? AND post_id = ?',
+            'SELECT id FROM likes WHERE author_id = ? AND post_id = ?',
             [userId, postId]
         );
         
         if (existing.length > 0) {
             // Unlike
             await pool.execute(
-                'DELETE FROM likes WHERE user_id = ? AND post_id = ?',
+                'DELETE FROM likes WHERE author_id = ? AND post_id = ?',
                 [userId, postId]
             );
             
             // Get post author for vitality update
             const [posts] = await pool.execute(
-                'SELECT user_id FROM posts WHERE id = ?',
+                'SELECT author_id FROM posts WHERE id = ?',
                 [postId]
             );
             
             if (posts.length > 0) {
-                await updateVitality(posts[0].user_id, -2, 'post_unliked');
+                await updateVitality(posts[0].author_id, -2, 'post_unliked');
             }
             
             res.json({ liked: false });
         } else {
             // Like
             await pool.execute(
-                'INSERT INTO likes (user_id, post_id) VALUES (?, ?)',
+                'INSERT INTO likes (author_id, post_id) VALUES (?, ?)',
                 [userId, postId]
             );
             
             // Get post author for vitality update
             const [posts] = await pool.execute(
-                'SELECT user_id FROM posts WHERE id = ?',
+                'SELECT author_id FROM posts WHERE id = ?',
                 [postId]
             );
             
             if (posts.length > 0) {
-                await updateVitality(posts[0].user_id, 2, 'post_liked');
+                await updateVitality(posts[0].author_id, 2, 'post_liked');
             }
             
             res.json({ liked: true });
@@ -385,43 +385,43 @@ app.post('/api/posts/:id/useful', authenticateToken, async (req, res) => {
         
         // Check if already marked useful
         const [existing] = await pool.execute(
-            'SELECT id FROM usefuls WHERE user_id = ? AND post_id = ?',
+            'SELECT id FROM usefuls WHERE author_id = ? AND post_id = ?',
             [userId, postId]
         );
         
         if (existing.length > 0) {
             // Remove useful mark
             await pool.execute(
-                'DELETE FROM usefuls WHERE user_id = ? AND post_id = ?',
+                'DELETE FROM usefuls WHERE author_id = ? AND post_id = ?',
                 [userId, postId]
             );
             
             // Get post author for vitality update
             const [posts] = await pool.execute(
-                'SELECT user_id FROM posts WHERE id = ?',
+                'SELECT author_id FROM posts WHERE id = ?',
                 [postId]
             );
             
             if (posts.length > 0) {
-                await updateVitality(posts[0].user_id, -5, 'post_useful_removed');
+                await updateVitality(posts[0].author_id, -5, 'post_useful_removed');
             }
             
             res.json({ useful: false });
         } else {
             // Mark useful
             await pool.execute(
-                'INSERT INTO usefuls (user_id, post_id) VALUES (?, ?)',
+                'INSERT INTO usefuls (author_id, post_id) VALUES (?, ?)',
                 [userId, postId]
             );
             
             // Get post author for vitality update
             const [posts] = await pool.execute(
-                'SELECT user_id FROM posts WHERE id = ?',
+                'SELECT author_id FROM posts WHERE id = ?',
                 [postId]
             );
             
             if (posts.length > 0) {
-                await updateVitality(posts[0].user_id, 5, 'post_marked_useful');
+                await updateVitality(posts[0].author_id, 5, 'post_marked_useful');
             }
             
             res.json({ useful: true });
@@ -442,7 +442,7 @@ app.get('/api/posts/:id/replies', async (req, res) => {
                    (SELECT COUNT(*) FROM likes WHERE reply_id = r.id) as likes_count,
                    (SELECT COUNT(*) FROM usefuls WHERE reply_id = r.id) as useful_count
             FROM replies r
-            JOIN users u ON r.user_id = u.id
+            JOIN users u ON r.author_id = u.id
             WHERE r.post_id = ?
             ORDER BY r.created_at ASC
         `, [postId]);
@@ -472,7 +472,7 @@ app.post('/api/posts/:id/replies', authenticateToken, async (req, res) => {
         
         // Create reply
         const [result] = await pool.execute(
-            'INSERT INTO replies (post_id, user_id, content) VALUES (?, ?, ?)',
+            'INSERT INTO replies (post_id, author_id, content) VALUES (?, ?, ?)',
             [postId, userId, content]
         );
         
@@ -493,12 +493,12 @@ app.get('/api/users/:id', authenticateToken, async (req, res) => {
         
         const [users] = await pool.execute(`
             SELECT id, username, email, bio, signature, vitality, role, created_at,
-                   (SELECT COUNT(*) FROM posts WHERE user_id = ?) as post_count,
-                   (SELECT COUNT(*) FROM replies WHERE user_id = ?) as reply_count,
+                   (SELECT COUNT(*) FROM posts WHERE author_id = ?) as post_count,
+                   (SELECT COUNT(*) FROM replies WHERE author_id = ?) as reply_count,
                    (SELECT COUNT(*) FROM follows WHERE follower_id = ?) as following_count,
                    (SELECT COUNT(*) FROM follows WHERE following_id = ?) as followers_count,
-                   (SELECT COUNT(*) FROM usefuls WHERE (post_id IN (SELECT id FROM posts WHERE user_id = ?) OR 
-                                                       reply_id IN (SELECT id FROM replies WHERE user_id = ?))) as useful_count
+                   (SELECT COUNT(*) FROM usefuls WHERE (post_id IN (SELECT id FROM posts WHERE author_id = ?) OR 
+                                                       reply_id IN (SELECT id FROM replies WHERE author_id = ?))) as useful_count
             FROM users
             WHERE id = ?
         `, [userId, userId, userId, userId, userId, userId, userId]);
@@ -587,7 +587,7 @@ app.get('/api/messages/conversations', authenticateToken, async (req, res) => {
                 CASE 
                     WHEN m.sender_id = ? THEN m.receiver_id 
                     ELSE m.sender_id 
-                END as user_id,
+                END as author_id,
                 u.username,
                 MAX(m.created_at) as last_message_time,
                 (SELECT content FROM messages WHERE 
@@ -600,7 +600,7 @@ app.get('/api/messages/conversations', authenticateToken, async (req, res) => {
                 ELSE m.sender_id 
             END)
             WHERE m.sender_id = ? OR m.receiver_id = ?
-            GROUP BY user_id, u.username
+            GROUP BY author_id, u.username
             ORDER BY last_message_time DESC
         `, [userId, userId, userId, userId, userId, userId]);
         
@@ -693,7 +693,7 @@ app.post('/api/tickets', authenticateToken, async (req, res) => {
         const userId = req.user.id;
         
         const [result] = await pool.execute(
-            'INSERT INTO tickets (user_id, title, content) VALUES (?, ?, ?)',
+            'INSERT INTO tickets (author_id, title, content) VALUES (?, ?, ?)',
             [userId, title, content]
         );
         
@@ -711,7 +711,7 @@ app.get('/api/tickets/user', authenticateToken, async (req, res) => {
         console.log('Fetching tickets for user:', userId);
         
         const [tickets] = await pool.execute(
-            'SELECT * FROM tickets WHERE user_id = ? ORDER BY created_at DESC',
+            'SELECT * FROM tickets WHERE author_id = ? ORDER BY created_at DESC',
             [userId]
         );
         
@@ -734,7 +734,7 @@ app.get('/api/tickets', authenticateToken, isAdmin, async (req, res) => {
         const [tickets] = await pool.execute(`
             SELECT t.*, u.username 
             FROM tickets t 
-            JOIN users u ON t.user_id = u.id 
+            JOIN users u ON t.author_id = u.id 
             ORDER BY t.created_at DESC
         `);
         
@@ -801,12 +801,12 @@ app.delete('/api/tickets/:id', authenticateToken, isAdmin, async (req, res) => {
 // Admin routes
 app.post('/api/admin/warn', authenticateToken, isAdmin, async (req, res) => {
     try {
-        const { user_id, reason } = req.body;
+        const { author_id, reason } = req.body;
         const adminId = req.user.id;
         
         await pool.execute(
-            'INSERT INTO warnings (user_id, admin_id, reason) VALUES (?, ?, ?)',
-            [user_id, adminId, reason]
+            'INSERT INTO warnings (author_id, admin_id, reason) VALUES (?, ?, ?)',
+            [author_id, adminId, reason]
         );
         
         res.json({ message: 'Warning sent successfully' });
@@ -818,7 +818,7 @@ app.post('/api/admin/warn', authenticateToken, isAdmin, async (req, res) => {
 
 app.post('/api/admin/ban', authenticateToken, isAdmin, async (req, res) => {
     try {
-        const { user_id, reason, ban_type, duration_hours } = req.body;
+        const { author_id, reason, ban_type, duration_hours } = req.body;
         const adminId = req.user.id;
         
         let endTime = null;
@@ -828,23 +828,23 @@ app.post('/api/admin/ban', authenticateToken, isAdmin, async (req, res) => {
         }
         
         await pool.execute(
-            'INSERT INTO bans (user_id, admin_id, reason, ban_type, end_time) VALUES (?, ?, ?, ?, ?)',
-            [user_id, adminId, reason, ban_type, endTime]
+            'INSERT INTO bans (author_id, admin_id, reason, ban_type, end_time) VALUES (?, ?, ?, ?, ?)',
+            [author_id, adminId, reason, ban_type, endTime]
         );
         
         // Update user permissions based on ban type
         switch (ban_type) {
             case 'post':
-                await pool.execute('UPDATE users SET can_post = FALSE WHERE id = ?', [user_id]);
+                await pool.execute('UPDATE users SET can_post = FALSE WHERE id = ?', [author_id]);
                 break;
             case 'like':
-                await pool.execute('UPDATE users SET can_like = FALSE WHERE id = ?', [user_id]);
+                await pool.execute('UPDATE users SET can_like = FALSE WHERE id = ?', [author_id]);
                 break;
             case 'message':
-                await pool.execute('UPDATE users SET can_message = FALSE WHERE id = ?', [user_id]);
+                await pool.execute('UPDATE users SET can_message = FALSE WHERE id = ?', [author_id]);
                 break;
             case 'account':
-                await pool.execute('UPDATE users SET is_banned = TRUE WHERE id = ?', [user_id]);
+                await pool.execute('UPDATE users SET is_banned = TRUE WHERE id = ?', [author_id]);
                 break;
         }
         
@@ -857,7 +857,7 @@ app.post('/api/admin/ban', authenticateToken, isAdmin, async (req, res) => {
             for (const admin of superAdmins) {
                 await pool.execute(
                     'INSERT INTO messages (sender_id, receiver_id, content) VALUES (?, ?, ?)',
-                    [adminId, admin.id, `Admin ${req.user.username} banned user ${user_id} for ${ban_type} (${reason})`]
+                    [adminId, admin.id, `Admin ${req.user.username} banned user ${author_id} for ${ban_type} (${reason})`]
                 );
             }
         }
@@ -871,11 +871,11 @@ app.post('/api/admin/ban', authenticateToken, isAdmin, async (req, res) => {
 
 app.post('/api/admin/promote', authenticateToken, isSuperAdmin, async (req, res) => {
     try {
-        const { user_id } = req.body;
+        const { author_id } = req.body;
         
         await pool.execute(
             "UPDATE users SET role = 'admin' WHERE id = ?",
-            [user_id]
+            [author_id]
         );
         
         res.json({ message: 'User promoted to admin' });
