@@ -75,8 +75,8 @@ function isSuperAdmin(req, res, next) {
     next();
 }
 
-// Update vitality function
-async function updateVitality(userId, amount, reason) {
+// 修改 updateVitality 函数定义，添加缺失的参数
+async function updateVitality(userId, amount, reason, source_type = null, source_id = null) {
     try {
         await pool.execute(
             'UPDATE users SET vitality = GREATEST(0, vitality + ?) WHERE id = ?',
@@ -84,14 +84,13 @@ async function updateVitality(userId, amount, reason) {
         );
         
         await pool.execute(
-            'INSERT INTO vitality_history (user_id, change_amount, reason) VALUES (?, ?, ?)',
-            [userId, amount, reason]
+            'INSERT INTO vitality_history (user_id, change_amount, reason, source_type, source_id) VALUES (?, ?, ?, ?, ?)',
+            [userId, amount, reason, source_type, source_id]
         );
     } catch (error) {
         console.error('Error updating vitality:', error);
     }
 }
-
 // Check weekly vitality decrease
 async function checkWeeklyVitalityDecrease() {
     try {
@@ -221,7 +220,6 @@ app.get('/api/posts', async (req, res) => {
     }
 });
 
-// 修改创建帖子的路由
 app.post('/api/posts', authenticateToken, async (req, res) => {
     try {
         const { title, content } = req.body;
@@ -235,7 +233,12 @@ app.post('/api/posts', authenticateToken, async (req, res) => {
             [userId]
         );
         
-        if (user.length === 0 || !user[0].can_post) {
+        // 注意：这里要检查数组是否为空
+        if (user.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        if (!user[0].can_post) {
             return res.status(403).json({ error: 'Posting is disabled for your account' });
         }
         
@@ -259,7 +262,8 @@ app.post('/api/posts', authenticateToken, async (req, res) => {
         console.error('Error stack:', error.stack);
         res.status(500).json({ 
             error: 'Internal server error',
-            details: error.message 
+            details: error.message,
+            stack: error.stack
         });
     }
 });
