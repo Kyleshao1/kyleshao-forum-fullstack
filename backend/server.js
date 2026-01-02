@@ -710,7 +710,7 @@ app.post('/api/tickets', authenticateToken, async (req, res) => {
         const userId = req.user.id;
         
         const [result] = await pool.execute(
-            'INSERT INTO tickets (author_id, title, content) VALUES (?, ?, ?)',
+            'INSERT INTO tickets (user_id, title, content) VALUES (?, ?, ?)',
             [userId, title, content]
         );
         
@@ -728,7 +728,7 @@ app.get('/api/tickets/user', authenticateToken, async (req, res) => {
         console.log('Fetching tickets for user:', userId);
         
         const [tickets] = await pool.execute(
-            'SELECT * FROM tickets WHERE author_id = ? ORDER BY created_at DESC',
+            'SELECT * FROM tickets WHERE user_id = ? ORDER BY created_at DESC',
             [userId]
         );
         
@@ -751,7 +751,7 @@ app.get('/api/tickets', authenticateToken, isAdmin, async (req, res) => {
         const [tickets] = await pool.execute(`
             SELECT t.*, u.username 
             FROM tickets t 
-            JOIN users u ON t.author_id = u.id 
+            JOIN users u ON t.user_id = u.id 
             ORDER BY t.created_at DESC
         `);
         
