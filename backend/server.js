@@ -11,7 +11,7 @@ const katex = require('katex');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-
+app.set('trust proxy', 1);
 // Middleware
 app.use(helmet());
 app.use(cors({
@@ -24,7 +24,18 @@ app.use(express.urlencoded({ extended: true }));
 // Rate limiting
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100 // limit each IP to 100 requests per windowMs
+    max: 100, // limit each IP to 100 requests per windowMs
+    // 添加信任代理配置
+    trustProxy: true,
+    keyGenerator: (req) => {
+        // 处理代理情况下的IP获取
+        if (req.headers['x-forwarded-for']) {
+            const forwardedFor = req.headers['x-forwarded-for'];
+            const firstIp = forwardedFor.split(',')[0].trim();
+            return firstIp;
+        }
+        return req.ip;
+    }
 });
 app.use('/api/', limiter);
 
@@ -227,9 +238,9 @@ app.post('/api/posts', authenticateToken, async (req, res) => {
         
         console.log('Creating post:', { userId, title, content });
         
-        // 检查用户是否可以发帖
+        // 检查用户是否可以发帖 - 使用 COALESCE 处理 NULL 值
         const [user] = await pool.execute(
-            'SELECT can_post FROM users WHERE id = ?',
+            'SELECT id, COALESCE(can_post, 1) as can_post FROM users WHERE id = ?',
             [userId]
         );
         
@@ -238,7 +249,8 @@ app.post('/api/posts', authenticateToken, async (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
         
-        if (!user[0].can_post) {
+        // 检查 can_post 字段，如果为 0 或 false 则不允许发帖
+        if (user[0].can_post === 0) {
             return res.status(403).json({ error: 'Posting is disabled for your account' });
         }
         
@@ -318,26 +330,26 @@ app.post('/api/posts/:id/like', authenticateToken, async (req, res) => {
         const postId = req.params.id;
         const userId = req.user.id;
         
-        // Check if user can like
+        // Check if user can like - 使用 COALESCE 处理 NULL 值
         const [user] = await pool.execute(
-            'SELECT can_like FROM users WHERE id = ?',
+            'SELECT id, COALESCE(can_like, 1) as can_like FROM users WHERE id = ?',
             [userId]
         );
         
-        if (!user[0].can_like) {
+        if (user[0].can_like === 0) {
             return res.status(403).json({ error: 'Liking is disabled for your account' });
         }
         
-        // Check if already liked
+        // 注意：likes 表应该使用 user_id 列，不是 author_id
         const [existing] = await pool.execute(
-            'SELECT id FROM likes WHERE author_id = ? AND post_id = ?',
+            'SELECT id FROM likes WHERE user_id = ? AND post_id = ?',
             [userId, postId]
         );
         
         if (existing.length > 0) {
             // Unlike
             await pool.execute(
-                'DELETE FROM likes WHERE author_id = ? AND post_id = ?',
+                'DELETE FROM likes WHERE user_id = ? AND post_id = ?',
                 [userId, postId]
             );
             
@@ -355,7 +367,7 @@ app.post('/api/posts/:id/like', authenticateToken, async (req, res) => {
         } else {
             // Like
             await pool.execute(
-                'INSERT INTO likes (author_id, post_id) VALUES (?, ?)',
+                'INSERT INTO likes (user_id, post_id) VALUES (?, ?)',
                 [userId, postId]
             );
             
@@ -385,14 +397,14 @@ app.post('/api/posts/:id/useful', authenticateToken, async (req, res) => {
         
         // Check if already marked useful
         const [existing] = await pool.execute(
-            'SELECT id FROM usefuls WHERE author_id = ? AND post_id = ?',
+            'SELECT id FROM usefuls WHERE user_id = ? AND post_id = ?',
             [userId, postId]
         );
         
         if (existing.length > 0) {
             // Remove useful mark
             await pool.execute(
-                'DELETE FROM usefuls WHERE author_id = ? AND post_id = ?',
+                'DELETE FROM usefuls WHERE user_id = ? AND post_id = ?',
                 [userId, postId]
             );
             
@@ -403,14 +415,14 @@ app.post('/api/posts/:id/useful', authenticateToken, async (req, res) => {
             );
             
             if (posts.length > 0) {
-                await updateVitality(posts[0].author_id, -5, 'post_useful_removed');
+                await updateVitality(posts[0].user_id, -5, 'post_useful_removed');
             }
             
             res.json({ useful: false });
         } else {
             // Mark useful
             await pool.execute(
-                'INSERT INTO usefuls (author_id, post_id) VALUES (?, ?)',
+                'INSERT INTO usefuls (user_id, post_id) VALUES (?, ?)',
                 [userId, postId]
             );
             
@@ -421,7 +433,7 @@ app.post('/api/posts/:id/useful', authenticateToken, async (req, res) => {
             );
             
             if (posts.length > 0) {
-                await updateVitality(posts[0].author_id, 5, 'post_marked_useful');
+                await updateVitality(posts[0].user_id, 5, 'post_marked_useful');
             }
             
             res.json({ useful: true });
