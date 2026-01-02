@@ -165,6 +165,7 @@ function logout() {
     loadPosts(); // 重新加载帖子（作为游客）
 }
 
+// 更新 checkAuth 函数以显示 admin panel
 function checkAuth() {
     const token = localStorage.getItem('token');
     const user = localStorage.getItem('user');
@@ -174,9 +175,130 @@ function checkAuth() {
             authToken = token;
             currentUser = JSON.parse(user);
             updateUI();
+            
+            // 如果是管理员，显示 admin panel
+            if (currentUser.role === 'admin' || currentUser.role === 'super_admin') {
+                const adminPanel = document.getElementById('admin-panel');
+                if (adminPanel) {
+                    adminPanel.classList.remove('hidden');
+                    console.log('Admin panel shown on page load for:', currentUser.username);
+                }
+            }
         } catch (e) {
             console.error('Error parsing user data:', e);
         }
+    }
+}
+
+function showAdminSection(sectionName) {
+    console.log('Showing admin section:', sectionName);
+    
+    // 隐藏所有 admin 部分
+    const adminSections = document.querySelectorAll('.admin-section');
+    adminSections.forEach(section => {
+        section.classList.add('hidden');
+    });
+    
+    // 显示选中的部分
+    const targetSection = document.getElementById(`admin-${sectionName}`);
+    if (targetSection) {
+        targetSection.classList.remove('hidden');
+    }
+    
+    // 加载相应的数据
+    if (sectionName === 'tickets') {
+        loadAllTickets();
+    } else if (sectionName === 'users') {
+        // 可以添加加载用户列表的函数
+        console.log('Loading users management (not implemented yet)');
+    } else if (sectionName === 'reports') {
+        // 可以添加加载报告的函数
+        console.log('Loading reports (not implemented yet)');
+    }
+}
+
+// ==============================================
+// ADMIN USER MANAGEMENT FUNCTIONS (可选)
+// ==============================================
+
+// 如果需要，可以添加用户管理函数
+async function loadAllUsers() {
+    if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'super_admin')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/admin/users`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (response.ok) {
+            const users = await response.json();
+            console.log('Loaded users:', users.length);
+            // 这里可以添加渲染用户的代码
+        }
+    } catch (error) {
+        console.error('Error loading users:', error);
+    }
+}
+
+// ==============================================
+// ADMIN BAN/WARN FUNCTIONS (可选)
+// ==============================================
+
+async function warnUser(userId, reason) {
+    if (!confirm(`Warn user #${userId}? Reason: ${reason}`)) return;
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/admin/warn`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({ user_id: userId, reason })
+        });
+        
+        if (response.ok) {
+            alert('Warning sent successfully!');
+        } else {
+            const error = await response.json().catch(() => ({ error: 'Failed to send warning' }));
+            alert(error.error || 'Failed to send warning');
+        }
+    } catch (error) {
+        console.error('Error warning user:', error);
+        alert('Failed to send warning. Please check your connection.');
+    }
+}
+
+async function banUser(userId, reason, banType, durationHours = null) {
+    const durationText = durationHours ? ` for ${durationHours} hours` : ' permanently';
+    if (!confirm(`Ban user #${userId} (${banType})${durationText}? Reason: ${reason}`)) return;
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/admin/ban`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({ 
+                user_id: userId, 
+                reason, 
+                ban_type: banType, 
+                duration_hours: durationHours 
+            })
+        });
+        
+        if (response.ok) {
+            alert('Ban applied successfully!');
+        } else {
+            const error = await response.json().catch(() => ({ error: 'Failed to apply ban' }));
+            alert(error.error || 'Failed to apply ban');
+        }
+    } catch (error) {
+        console.error('Error banning user:', error);
+        alert('Failed to apply ban. Please check your connection.');
     }
 }
 
