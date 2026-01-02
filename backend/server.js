@@ -231,55 +231,60 @@ app.get('/api/posts', async (req, res) => {
     }
 });
 
-app.post('/api/posts', authenticateToken, async (req, res) => {
+// 修复 usefuls 相关的查询
+app.post('/api/posts/:id/useful', authenticateToken, async (req, res) => {
     try {
-        const { title, content } = req.body;
+        const postId = req.params.id;
         const userId = req.user.id;
         
-        console.log('Creating post:', { userId, title, content });
-        
-        // 检查用户是否可以发帖 - 使用 COALESCE 处理 NULL 值
-        const [user] = await pool.execute(
-            'SELECT id, COALESCE(can_post, 1) as can_post FROM users WHERE id = ?',
-            [userId]
+        // 修复：检查是否已经标记为有用
+        const [existing] = await pool.execute(
+            'SELECT id FROM usefuls WHERE user_id = ? AND post_id = ?',
+            [userId, postId]
         );
         
-        // 注意：这里要检查数组是否为空
-        if (user.length === 0) {
-            return res.status(404).json({ error: 'User not found' });
+        if (existing.length > 0) {
+            // 移除有用标记
+            await pool.execute(
+                'DELETE FROM usefuls WHERE user_id = ? AND post_id = ?',
+                [userId, postId]
+            );
+            
+            // 修复：更新用户的活力值
+            const [posts] = await pool.execute(
+                'SELECT author_id FROM posts WHERE id = ?',
+                [postId]
+            );
+            
+            if (posts.length > 0) {
+                await updateVitality(posts[0].author_id, -5, 'post_useful_removed', 'post', postId);
+            }
+            
+            res.json({ useful: false });
+        } else {
+            // 标记为有用
+            await pool.execute(
+                'INSERT INTO usefuls (user_id, post_id) VALUES (?, ?)',
+                [userId, postId]
+            );
+            
+            // 修复：更新作者的活力值
+            const [posts] = await pool.execute(
+                'SELECT author_id FROM posts WHERE id = ?',
+                [postId]
+            );
+            
+            if (posts.length > 0) {
+                await updateVitality(posts[0].author_id, 5, 'post_marked_useful', 'post', postId);
+            }
+            
+            res.json({ useful: true });
         }
-        
-        // 检查 can_post 字段，如果为 0 或 false 则不允许发帖
-        if (user[0].can_post === 0) {
-            return res.status(403).json({ error: 'Posting is disabled for your account' });
-        }
-        
-        // 创建帖子
-        const [result] = await pool.execute(
-            'INSERT INTO posts (author_id, title, content) VALUES (?, ?, ?)',
-            [userId, title, content]
-        );
-        
-        console.log('Post created with ID:', result.insertId);
-        
-        // 更新活力值
-        await updateVitality(userId, 2, 'create_post', 'post', result.insertId);
-        
-        res.status(201).json({ 
-            id: result.insertId, 
-            message: 'Post created successfully' 
-        });
     } catch (error) {
-        console.error('Error creating post:', error);
-        console.error('Error stack:', error.stack);
-        res.status(500).json({ 
-            error: 'Internal server error',
-            details: error.message,
-            stack: error.stack
-        });
+        console.error('Error marking post useful:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
-
 app.delete('/api/posts/:id', authenticateToken, isAdmin, async (req, res) => {
     try {
         const postId = req.params.id;
