@@ -110,9 +110,19 @@ async function login(username, password) {
             // 加载帖子
             loadPosts();
             
+            // 确保 admin panel 正确显示
             if (currentUser.role === 'admin' || currentUser.role === 'super_admin') {
                 const adminPanel = document.getElementById('admin-panel');
-                if (adminPanel) adminPanel.classList.remove('hidden');
+                if (adminPanel) {
+                    adminPanel.classList.remove('hidden');
+                    console.log('Admin panel shown for user:', currentUser.username);
+                } else {
+                    console.error('Admin panel element not found');
+                }
+            } else {
+                // 确保非管理员看不到 admin panel
+                const adminPanel = document.getElementById('admin-panel');
+                if (adminPanel) adminPanel.classList.add('hidden');
             }
         } else {
             const error = await response.json().catch(() => ({ error: 'Login failed' }));
@@ -123,7 +133,6 @@ async function login(username, password) {
         alert('Login failed. Please check your connection.');
     }
 }
-
 async function register(username, email, password) {
     try {
         const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
