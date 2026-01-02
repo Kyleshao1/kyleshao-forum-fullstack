@@ -171,29 +171,44 @@
             </section>
         </main>
 
-        <!-- Admin Panel (only for admins) -->
-        <div id="admin-panel" class="hidden">
+        <!-- 完整的 Admin Panel -->
+        <div id="admin-panel" class="admin-panel hidden">
             <h2>Admin Panel</h2>
             <div class="admin-actions">
                 <button onclick="showAdminSection('users')">Manage Users</button>
                 <button onclick="showAdminSection('reports')">Reports</button>
                 <button onclick="showAdminSection('tickets')">Manage Tickets</button>
+                <button onclick="showAdminSection('moderation')">Content Moderation</button>
             </div>
             
-            <!-- Admin Sections -->
+            <!-- 用户管理部分 -->
             <div id="admin-users" class="admin-section hidden">
-                <h3>Manage Users</h3>
-                <p>User management coming soon...</p>
+                <h3>User Management</h3>
+                <div id="users-list">
+                    <p>User management section - to be implemented</p>
+                </div>
             </div>
             
+            <!-- 报告部分 -->
             <div id="admin-reports" class="admin-section hidden">
                 <h3>Reports</h3>
-                <p>Report management coming soon...</p>
+                <div id="reports-list">
+                    <p>Reports section - to be implemented</p>
+                </div>
             </div>
             
+            <!-- 工单管理部分 -->
             <div id="admin-tickets" class="admin-section hidden">
                 <h3>All Tickets</h3>
-                <div id="admin-tickets-container"></div>
+                <div id="admin-tickets-list"></div>
+            </div>
+            
+            <!-- 内容审核部分 -->
+            <div id="admin-moderation" class="admin-section hidden">
+                <h3>Content Moderation</h3>
+                <div id="moderation-list">
+                    <p>Content moderation section - to be implemented</p>
+                </div>
             </div>
         </div>
     </div>
