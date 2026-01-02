@@ -405,6 +405,248 @@ body {
     background-color: #1d4ed8;
 }
 
+/* 添加到 style.css 文件的末尾 */
+
+/* 管理员面板样式 */
+.admin-panel {
+    background-color: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    padding: 2rem;
+    margin: 2rem auto;
+    max-width: 1200px;
+}
+
+.admin-actions {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+}
+
+.admin-actions button {
+    padding: 0.75rem 1.5rem;
+    background-color: var(--gray-100);
+    border: 1px solid var(--gray-300);
+    border-radius: 0.375rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.admin-actions button:hover {
+    background-color: var(--gray-200);
+}
+
+.admin-section {
+    background-color: var(--gray-50);
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin-top: 1rem;
+}
+
+/* 票务样式 */
+.ticket-form {
+    background-color: var(--gray-50);
+    padding: 1.5rem;
+    border-radius: 0.5rem;
+    margin-bottom: 2rem;
+}
+
+.ticket-form h3 {
+    margin-bottom: 1rem;
+    color: var(--gray-800);
+}
+
+.ticket-form input,
+.ticket-form textarea {
+    width: 100%;
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+    border: 1px solid var(--gray-300);
+    border-radius: 0.375rem;
+    font-size: 1rem;
+}
+
+.ticket-form textarea {
+    min-height: 150px;
+    resize: vertical;
+}
+
+.ticket-form button {
+    padding: 0.75rem 1.5rem;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 0.375rem;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.ticket-form button:hover {
+    background-color: #1d4ed8;
+}
+
+.user-tickets {
+    margin-top: 2rem;
+}
+
+.ticket {
+    background-color: white;
+    border: 1px solid var(--gray-200);
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    transition: box-shadow 0.2s;
+}
+
+.ticket:hover {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.ticket-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.ticket-status {
+    padding: 0.25rem 0.75rem;
+    border-radius: 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.ticket-status.open {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+.ticket-status.pending {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.ticket-status.completed {
+    background-color: #dcfce7;
+    color: #166534;
+}
+
+.ticket-status.closed {
+    background-color: #f3f4f6;
+    color: #4b5563;
+}
+
+.ticket-content {
+    margin-bottom: 1rem;
+    color: var(--gray-700);
+    line-height: 1.6;
+}
+
+.ticket-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 1rem;
+    border-top: 1px solid var(--gray-200);
+    font-size: 0.875rem;
+    color: var(--gray-600);
+}
+
+.ticket-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.ticket-actions button {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--gray-300);
+    background: none;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+}
+
+.ticket-actions button:hover {
+    background-color: var(--gray-100);
+}
+
+.ticket-actions button.danger {
+    background-color: var(--danger-color);
+    color: white;
+    border-color: var(--danger-color);
+}
+
+.ticket-actions button.danger:hover {
+    background-color: #b91c1c;
+}
+
+/* 回复样式 */
+.replies-container {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--gray-200);
+}
+
+.reply {
+    background-color: var(--gray-50);
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.reply-author {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.reply-content {
+    color: var(--gray-700);
+    line-height: 1.6;
+}
+
+.reply-date {
+    font-size: 0.875rem;
+    color: var(--gray-500);
+    margin-top: 0.5rem;
+}
+
+/* 危险按钮样式 */
+.action-button.danger {
+    background-color: var(--danger-color);
+    color: white;
+    border-color: var(--danger-color);
+}
+
+.action-button.danger:hover {
+    background-color: #b91c1c;
+}
+
+/* 确保管理员面板在移动设备上正确显示 */
+@media (max-width: 768px) {
+    .admin-actions {
+        flex-direction: column;
+    }
+    
+    .admin-actions button {
+        width: 100%;
+    }
+    
+    .ticket-footer {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: flex-start;
+    }
+    
+    .ticket-actions {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+}
 @media (max-width: 768px) {
     .navbar {
         flex-direction: column;
