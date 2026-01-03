@@ -231,6 +231,53 @@ app.get('/api/posts', async (req, res) => {
     }
 });
 
+// 在 server.js 中添加 POST /api/posts 路由
+app.post('/api/posts', authenticateToken, async (req, res) => {
+    try {
+        const { title, content } = req.body;
+        const userId = req.user.id;
+        
+        console.log('Creating post:', { userId, title, content });
+        
+        // 检查用户是否可以发帖
+        const [user] = await pool.execute(
+            'SELECT can_post FROM users WHERE id = ?',
+            [userId]
+        );
+        
+        if (user.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        if (!user[0].can_post) {
+            return res.status(403).json({ error: 'Posting is disabled for your account' });
+        }
+        
+        // 创建帖子
+        const [result] = await pool.execute(
+            'INSERT INTO posts (author_id, title, content) VALUES (?, ?, ?)',
+            [userId, title, content]
+        );
+        
+        console.log('Post created with ID:', result.insertId);
+        
+        // 更新活力值
+        await updateVitality(userId, 2, 'create_post', 'post', result.insertId);
+        
+        res.status(201).json({ 
+            id: result.insertId, 
+            message: 'Post created successfully' 
+        });
+    } catch (error) {
+        console.error('Error creating post:', error);
+        console.error('Error stack:', error.stack);
+        res.status(500).json({ 
+            error: 'Internal server error',
+            details: error.message,
+            stack: error.stack
+        });
+    }
+});
 // 修复 usefuls 相关的查询
 app.post('/api/posts/:id/useful', authenticateToken, async (req, res) => {
     try {
