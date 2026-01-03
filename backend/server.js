@@ -255,7 +255,7 @@ app.post('/api/posts', authenticateToken, async (req, res) => {
         
         // 创建帖子
         const [result] = await pool.execute(
-            'INSERT INTO posts (author_id, title, content) VALUES (?, ?, ?)',
+            'INSERT INTO posts (author_id, title, content_markdown) VALUES (?, ?, ?)',
             [userId, title, content]
         );
         
